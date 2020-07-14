@@ -2,7 +2,7 @@
 #include <utility>
 #include <cstring>
 
-extern int ai_side;
+extern int ai_side; //0: black, 1: white
 std::string ai_name = "your_ai_name_here";
 
 int turn = 0;

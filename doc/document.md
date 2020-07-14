@@ -27,6 +27,8 @@ python3, 需要的包有`subprocess`, `timeout_decorator`, `numpy`, `sys`, `time
 
 可以通过更改judge.py来输出更多信息
 
+Note: 人机下的时候最好注释掉`judge.py`33, 42行
+
 # 参考资料
 ## 算法
 1. 基础教程：https://github.com/lihongxun945/myblog/issues/11

@@ -57,7 +57,7 @@ class Board:
         for i in range(15):
             for j in range(15):
                 if self.board[i][j] == -1:
-                    sys.stdout.write('* ')
+                    sys.stdout.write('_ ')
                 else:
                     sys.stdout.write(str(self.board[i][j]) + ' ')
             sys.stdout.write('\n')
@@ -115,8 +115,8 @@ def judge():
             a, b = ai0.action(-1, -1)
         else:
             a, b = ai0.action(a, b)
-        ret = board.check_win(0, turn, a, b)
         sys.stderr.write('ai0 take action: [' + str(a) + ' ' + str(b) + ']\n')
+        ret = board.check_win(0, turn, a, b)
         board.action(0, turn, a, b)
         board.show()
         if ret == -1:
@@ -125,11 +125,11 @@ def judge():
             win(0)
 
         a, b = ai1.action(a, b)
-        ret = board.check_win(1, turn, a, b)
         if turn == 2 and a == -1 and b == -1:
             sys.stderr.write('ai1 flips the board\n')
         else:
             sys.stderr.write('ai1 take action: [' + str(a) + ' ' + str(b) + ']\n')
+        ret = board.check_win(1, turn, a, b)
         board.action(1, turn, a, b)
         if ret == -1:
             win(0)
