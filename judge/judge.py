@@ -30,7 +30,7 @@ class AI:
     def receive(self):
         return self.proc.stdout.readline().strip().decode()
 
-    @timeout_decorator.timeout(5)
+    #@timeout_decorator.timeout(seconds = 5, use_signals = True)
     def init(self):
         if self.human == 0:
             self.proc = subprocess.Popen(self.path,
@@ -39,7 +39,7 @@ class AI:
             self.send(self.id)
             self.name = self.receive()
 
-    @timeout_decorator.timeout(5)
+    #@timeout_decorator.timeout(seconds = 5, use_signals = True)
     def action(self, a, b):
         if self.human == 1:
             value = sys.stdin.readline().strip().split(' ')
@@ -68,6 +68,9 @@ class Board:
         else:
             self.board[x][y] = side
 
+    def full(self):
+        return len(np.where(self.board == -1)[0]) == 0
+
     def check_win(self, side, turn, x, y):
         if turn == 2 and side == 1 and x == -1 and y == -1:
             return 0
@@ -77,16 +80,24 @@ class Board:
         # 8 Directions
         dx = [1, 1, -1, -1, 0, 0, 1, -1]
         dy = [1, -1, 1, -1, 1, -1, 0, 0]
-        for i in range(8):
-            curx, cury = x + dx[i], y + dy[i]
-            flg = True
-            for step in range(4):
-                if self.board[curx][cury] != side:
-                    flg = False
-                    break
-                curx, cury = curx + dx[i], cury + dy[i]
-            if flg:
-                return 1
+        for xx in range(0, 15):
+            for yy in range(0, 15):
+
+                for i in range(8):
+                    curx, cury = xx, yy
+                    flg = True
+                    for _ in range(5):
+                        if curx < 0 or curx >= 15 or cury < 0 or cury >= 15:
+                            flg = False
+                            break
+
+                        if self.board[curx][cury] != side and (curx != x or cury != y):
+                            flg = False
+                            break
+                        curx, cury = curx + dx[i], cury + dy[i]
+                        # print(_, curx, cury, self.board[curx][cury], side)
+                    if flg:
+                        return 1
 
         return 0
 
@@ -103,10 +114,9 @@ def try_init(ai0, ai1):
         sys.stderr.write('Time out: ai1 timeout in init function\n')
         win(0)
 
-
 def judge():
     board = Board()
-    ai0, ai1 = AI(sys.argv[1], 0), AI(sys.argv[2], 0)
+    ai0, ai1 = AI(sys.argv[1], 0), AI(sys.argv[2], 1)
     try_init(ai0, ai1)
     a, b = -1, -1
     for turn in range(1, 15 * 15 + 1):
@@ -115,6 +125,10 @@ def judge():
             a, b = ai0.action(-1, -1)
         else:
             a, b = ai0.action(a, b)
+        '''
+        x = int(request.args.get('x', 'a'))
+        y = int(request.args.get('y', 'b'))
+        '''
         sys.stderr.write('ai0 take action: [' + str(a) + ' ' + str(b) + ']\n')
         ret = board.check_win(0, turn, a, b)
         board.action(0, turn, a, b)
@@ -123,8 +137,15 @@ def judge():
             win(1)
         elif ret == 1:
             win(0)
+        elif board.full():
+            win(2)
 
         a, b = ai1.action(a, b)
+        '''
+        x = int(request.args.get('x', 'a'))
+        y = int(request.args.get('y', 'b'))
+        ai_side=int(request.args.get("ai_side", 'ai1.ai_side'))
+        '''
         if turn == 2 and a == -1 and b == -1:
             sys.stderr.write('ai1 flips the board\n')
         else:
@@ -135,6 +156,8 @@ def judge():
             win(0)
         elif ret == 1:
             win(1)
+        elif board.full():
+            win(2)
 
     win(2)
 
@@ -147,3 +170,4 @@ if __name__ == '__main__':
         sys.stderr.write('         python3 judge.py human ./sample_ai\n')
         sys.exit(1)
     judge()
+

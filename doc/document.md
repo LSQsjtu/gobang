@@ -17,6 +17,8 @@
 
 ## 本地评测
 
+先编译aicpp
+
 python3, 需要的包有`subprocess`, `timeout_decorator`, `numpy`, `sys`, `time`
 
 运行方式：`python3 judge.py ai0path/human ai1path/human`
