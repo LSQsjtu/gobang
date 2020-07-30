@@ -685,16 +685,15 @@ std::pair<int, int> action(std::pair<int, int> loc)
     {
         if (turn == 1)
         {
-            ZobristValue ^= boardZobristValue[7][7][ai_side];
-            board[7][7] = ai_side;
-            update_score(Coordinate(7, 7));
-            next_point = Coordinate(7, 7);
-            ppm.add(board, Coordinate(7, 7));
-            return std::make_pair(7, 7);
+            ZobristValue ^= boardZobristValue[2][7][ai_side];
+            board[2][7] = ai_side;
+            update_score(Coordinate(2, 7));
+            next_point = Coordinate(2, 7);
+            ppm.add(board, Coordinate(2, 7));
+            return std::make_pair(2, 7);
         }
         if (turn == 3)
         {
-            ai_side = 1 - ai_side;
             int tmp;
             tmp = chess_score[0];
             chess_score[0] = chess_score[1];
@@ -704,7 +703,6 @@ std::pair<int, int> action(std::pair<int, int> loc)
                     if (board[i][j] != -1)
                     {
                         board[i][j] = board[i][j] ^ 1;
-                        update_score(Coordinate(i, j));
                     }
 
             abSearch(DEPTH, MIN, MAX, ai_side);
@@ -714,6 +712,16 @@ std::pair<int, int> action(std::pair<int, int> loc)
             ppm.add(board, next_point);
             return std::make_pair(next_point.x, next_point.y);
         }
+    }
+
+    if (turn == 2 && ai_side == 0)
+    {
+        next_point = Coordinate(0, 1);
+        board[next_point.x][next_point.y] = ai_side;
+        ZobristValue ^= boardZobristValue[next_point.x][next_point.y][ai_side];
+        update_score(next_point);
+        ppm.add(board, next_point);
+        return std::make_pair(0, 1);
     }
 
     board[x][y] = 1 - ai_side;
