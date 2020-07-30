@@ -4,7 +4,6 @@
 #include <vector>
 #include <set>
 #include <map>
-#include <cassert>
 //#include <iostream>
 using namespace std;
 
@@ -17,6 +16,18 @@ const int DEPTH = 7;
 long long ZobristValue, boardZobristValue[15][15][2];
 int turn = 0;
 int board[15][15], chess_score[2], scores[2][72];
+
+bool out_board(int x, int y)
+{
+    if (x >= 0 && x < 15 && y >= 0 && y < 15)
+    {
+        return false;
+    }
+    else
+    {
+        return true;
+    }
+}
 
 struct Pattern
 {
@@ -51,30 +62,25 @@ enum index
     EMPTY = -1
 };
 
-long long random64()
-{
-    return (long long)rand() | ((long long)rand() << 15) | ((long long)rand() << 30) | ((long long)rand() << 45) | ((long long)rand() << 60);
-}
-
-struct position
+struct Coordinate
 {
     int x;
     int y;
     int score;
-    position() { x = 0, y = 0, score = 0; };
-    position(int x, int y)
+    Coordinate() { x = 0, y = 0, score = 0; };
+    Coordinate(int x, int y)
     {
         this->x = x;
         this->y = y;
         score = 0;
     }
-    position(int x, int y, int score)
+    Coordinate(int x, int y, int score)
     {
         this->x = x;
         this->y = y;
         this->score = score;
     }
-    bool operator<(const position &pos) const
+    bool operator<(const Coordinate &pos) const
     {
         if (score != pos.score)
         {
@@ -91,12 +97,6 @@ struct position
     }
 } next_point;
 
-struct history
-{
-    set<position> addedPositions;
-    position removedPosition;
-};
-
 //保存棋局的哈希表条目
 struct HashItem
 {
@@ -106,25 +106,18 @@ struct HashItem
     index state;
 } hashItems[0xffff];
 
-bool out_board(int x, int y)
+struct possible_Coordinate
 {
-    if (x >= 0 && x < 15 && y >= 0 && y < 15)
+    struct history
     {
-        return false;
-    }
-    else
-    {
-        return true;
-    }
-}
-
-struct possible_position
-{
-    set<position> current_possible;
+        set<Coordinate> addedCoordinates;
+        Coordinate removedCoordinate;
+    };
+    set<Coordinate> current_possible;
     vector<history> his;
     vector<pair<int, int>> directions;
-    int (*evaluateFunc)(char board[15][15], position p);
-    possible_position()
+    int (*evaluateFunc)(char board[15][15], Coordinate p);
+    possible_Coordinate()
     {
         directions.push_back(pair<int, int>(1, 1));
         directions.push_back(pair<int, int>(1, -1));
@@ -135,38 +128,36 @@ struct possible_position
         directions.push_back(pair<int, int>(-1, 0));
         directions.push_back(pair<int, int>(0, -1));
     }
-    void add(int board[15][15], const position &p)
+    void add(int board[15][15], const Coordinate &p)
     {
-        set<position> addedPositions;
+        set<Coordinate> addedCoordinates;
 
         for (int i = 0; i < 8; i++)
         {
-            //判断范围
             if (out_board(p.x + directions[i].first, p.y + directions[i].second))
                 continue;
 
             if (board[p.x + directions[i].first][p.y + directions[i].second] == EMPTY)
             {
-                position pos(p.x + directions[i].first, p.y + directions[i].second);
-                pair<set<position>::iterator, bool> insertResult = current_possible.insert(pos);
+                Coordinate pos(p.x + directions[i].first, p.y + directions[i].second);
+                pair<set<Coordinate>::iterator, bool> insertResult = current_possible.insert(pos);
 
-                //如果插入成功
                 if (insertResult.second)
-                    addedPositions.insert(pos);
+                    addedCoordinates.insert(pos);
             }
         }
 
         history hi;
-        hi.addedPositions = addedPositions;
+        hi.addedCoordinates = addedCoordinates;
 
         if (current_possible.find(p) != current_possible.end())
         {
             current_possible.erase(p);
-            hi.removedPosition = p;
+            hi.removedCoordinate = p;
         }
         else
         {
-            hi.removedPosition.x = -1;
+            hi.removedCoordinate.x = -1;
         }
 
         his.push_back(hi);
@@ -178,184 +169,171 @@ struct possible_position
 
         history hi = his[his.size() - 1];
         his.pop_back();
+        set<Coordinate>::iterator iter;
 
-        set<position>::iterator iter;
-
-        //清除掉前一步加入的点
-        for (iter = hi.addedPositions.begin(); iter != hi.addedPositions.end(); iter++)
+        for (iter = hi.addedCoordinates.begin(); iter != hi.addedCoordinates.end(); iter++) //清除掉前一步加入的点
         {
             current_possible.erase(*iter);
         }
 
-        //加入前一步删除的点
-        if (hi.removedPosition.x != -1)
-            current_possible.insert(hi.removedPosition);
+        if (hi.removedCoordinate.x != -1) //加入前一步删除的点
+            current_possible.insert(hi.removedCoordinate);
     }
 } ppm;
 
-set<position> current_position;
-//trie树节点
-struct node
-{
-    char ch;
-    map<char, int> sons;
-    int fail;
-    vector<int> output;
-    int parent;
-    node(int p, char c) : parent(p), ch(c), fail(-1) {}
-};
+set<Coordinate> current_Coordinate;
 
 struct searcher
 {
-    int maxState;           //最大状态数
-    vector<node> nodes;     //trie树
-    vector<string> paterns; //需要匹配的模式
-
-    searcher() : maxState(0)
+    struct node //trie树节点
     {
-        //初始化根节点
-        AddState(-1, 'a');
+        char ch;
+        map<char, int> sons;
+        int fail;
+        vector<int> output;
+        int parent;
+        node(int p, char c) : parent(p), ch(c), fail(-1) {}
+    };
+    int max_state;      //最大状态数
+    vector<node> nodes; //trie树
+    vector<string> pat; //需要匹配的模式
+
+    searcher() : max_state(0)
+    {
+        add_state(-1, 'a');
         nodes[0].fail = -1;
     }
 
-    void LoadPattern(const vector<string> &paterns)
+    void load(const vector<string> &pat)
     {
-        this->paterns = paterns;
+        this->pat = pat;
     }
 
-    void BuildGotoTable()
+    void build()
     {
-        assert(nodes.size());
-
         unsigned int i, j;
-        for (i = 0; i < paterns.size(); i++)
+        for (i = 0; i < pat.size(); i++)
         {
-            int currentIndex = 0;
-            for (j = 0; j < paterns[i].size(); j++)
+            int current_index = 0;
+            for (j = 0; j < pat[i].size(); j++)
             {
-                if (nodes[currentIndex].sons.find(paterns[i][j]) == nodes[currentIndex].sons.end())
+                if (nodes[current_index].sons.find(pat[i][j]) == nodes[current_index].sons.end())
                 {
-                    nodes[currentIndex].sons[paterns[i][j]] = ++maxState;
+                    nodes[current_index].sons[pat[i][j]] = ++max_state;
 
-                    AddState(currentIndex, paterns[i][j]);
-                    currentIndex = maxState;
+                    add_state(current_index, pat[i][j]);
+                    current_index = max_state;
                 }
                 else
                 {
-                    currentIndex = nodes[currentIndex].sons[paterns[i][j]];
+                    current_index = nodes[current_index].sons[pat[i][j]];
                 }
             }
 
-            nodes[currentIndex].output.push_back(i);
+            nodes[current_index].output.push_back(i);
         }
     }
 
-    void BuildFailTable()
+    void build_fail()
     {
-        assert(nodes.size());
+        vector<int> mid_nodes;
 
-        vector<int> midNodesIndex;
-
-        //给第一层的节点设置fail为0，并把第二层节点加入到midState里
-        node root = nodes[0];
+        node root = nodes[0]; //给第一层的节点设置fail为0，并把第二层节点加入到midState里
 
         map<char, int>::iterator iter1, iter2;
         for (iter1 = root.sons.begin(); iter1 != root.sons.end(); iter1++)
         {
             nodes[iter1->second].fail = 0;
-            node &currentNode = nodes[iter1->second];
+            node &current_node = nodes[iter1->second];
 
-            //收集第三层节点
-            for (iter2 = currentNode.sons.begin(); iter2 != currentNode.sons.end(); iter2++)
+            for (iter2 = current_node.sons.begin(); iter2 != current_node.sons.end(); iter2++)
             {
-                midNodesIndex.push_back(iter2->second);
+                mid_nodes.push_back(iter2->second);
             }
         }
 
-        //广度优先遍历
-        while (midNodesIndex.size())
+        while (mid_nodes.size()) //广度优先遍历
         {
-            vector<int> newMidNodesIndex;
+            vector<int> newMid_nodes;
 
             unsigned int i;
-            for (i = 0; i < midNodesIndex.size(); i++)
+            for (i = 0; i < mid_nodes.size(); i++)
             {
-                node &currentNode = nodes[midNodesIndex[i]];
+                node &current_node = nodes[mid_nodes[i]];
 
-                //以下循环为寻找当前节点的fail值
-                int currentFail = nodes[currentNode.parent].fail;
+                int current_fail = nodes[current_node.parent].fail;
                 while (true)
                 {
-                    node &currentFailNode = nodes[currentFail];
+                    node &current_fail_node = nodes[current_fail];
 
-                    if (currentFailNode.sons.find(currentNode.ch) != currentFailNode.sons.end())
+                    if (current_fail_node.sons.find(current_node.ch) != current_fail_node.sons.end())
                     {
-                        currentNode.fail = currentFailNode.sons.find(currentNode.ch)->second;
+                        current_node.fail = current_fail_node.sons.find(current_node.ch)->second;
 
-                        if (nodes[currentNode.fail].output.size())
+                        if (nodes[current_node.fail].output.size())
                         {
-                            currentNode.output.insert(currentNode.output.end(), nodes[currentNode.fail].output.begin(), nodes[currentNode.fail].output.end());
+                            current_node.output.insert(current_node.output.end(), nodes[current_node.fail].output.begin(), nodes[current_node.fail].output.end());
                         }
 
                         break;
                     }
                     else
                     {
-                        currentFail = currentFailNode.fail;
+                        current_fail = current_fail_node.fail;
                     }
 
-                    if (currentFail == -1)
+                    if (current_fail == -1)
                     {
-                        currentNode.fail = 0;
+                        current_node.fail = 0;
                         break;
                     }
                 }
-                for (iter1 = currentNode.sons.begin(); iter1 != currentNode.sons.end(); iter1++)
+                for (iter1 = current_node.sons.begin(); iter1 != current_node.sons.end(); iter1++)
                 {
-                    newMidNodesIndex.push_back(iter1->second);
+                    newMid_nodes.push_back(iter1->second);
                 }
             }
-            midNodesIndex = newMidNodesIndex;
+            mid_nodes = newMid_nodes;
         }
     }
 
     vector<int> search(const string &text)
     {
         vector<int> result;
-        int currentIndex = 0;
+        int current_index = 0;
 
         unsigned int i;
         map<char, int>::iterator iter;
         for (i = 0; i < text.size();)
         {
-            if ((iter = nodes[currentIndex].sons.find(text[i])) != nodes[currentIndex].sons.end())
+            if ((iter = nodes[current_index].sons.find(text[i])) != nodes[current_index].sons.end())
             {
-                currentIndex = iter->second;
+                current_index = iter->second;
                 i++;
             }
             else
             {
-                while (nodes[currentIndex].fail != -1 && nodes[currentIndex].sons.find(text[i]) == nodes[currentIndex].sons.end())
+                while (nodes[current_index].fail != -1 && nodes[current_index].sons.find(text[i]) == nodes[current_index].sons.end())
                 {
-                    currentIndex = nodes[currentIndex].fail;
+                    current_index = nodes[current_index].fail;
                 }
 
-                if (nodes[currentIndex].sons.find(text[i]) == nodes[currentIndex].sons.end())
+                if (nodes[current_index].sons.find(text[i]) == nodes[current_index].sons.end())
                 {
                     i++;
                 }
             }
 
-            if (nodes[currentIndex].output.size())
+            if (nodes[current_index].output.size())
             {
-                result.insert(result.end(), nodes[currentIndex].output.begin(), nodes[currentIndex].output.end());
+                result.insert(result.end(), nodes[current_index].output.begin(), nodes[current_index].output.end());
             }
         }
 
         return result;
     }
 
-    void AddState(int parent, char ch)
+    void add_state(int parent, char ch)
     {
         nodes.push_back(node(parent, ch));
     }
@@ -441,7 +419,7 @@ int evalueate_point(int x, int y)
     return result;
 }
 
-void update_score(position p)
+void update_score(Coordinate p)
 {
     string lines[4];
     string lines1[4];
@@ -613,37 +591,32 @@ int abSearch(int depth, int alpha, int beta, int role)
     }
 
     int cnt = 0;
-    set<position> possible;
-    const set<position> &temp = ppm.current_possible;
+    set<Coordinate> possible;
+    const set<Coordinate> &temp = ppm.current_possible;
 
     //对当前可能出现的位置进行粗略评分
-    set<position>::iterator iter;
+    set<Coordinate>::iterator iter;
     for (iter = temp.begin(); iter != temp.end(); iter++)
     {
-        possible.insert(position(iter->x, iter->y, evalueate_point(iter->x, iter->y)));
+        possible.insert(Coordinate(iter->x, iter->y, evalueate_point(iter->x, iter->y)));
     }
 
     while (!possible.empty())
     {
-        position p = *possible.begin();
+        Coordinate p = *possible.begin();
 
         possible.erase(possible.begin());
 
-        //放置棋子
         board[p.x][p.y] = role;
         ZobristValue ^= boardZobristValue[p.x][p.y][role];
         update_score(p);
 
-        //增加可能出现的位置
         p.score = 0;
         ppm.add(board, p);
 
         int val = -abSearch(depth - 1, -beta, -alpha, 1 - role);
-
-        //取消上一次增加的可能出现的位置
         ppm.back();
 
-        //取消放置
         board[p.x][p.y] = -1;
         ZobristValue ^= boardZobristValue[p.x][p.y][role];
         update_score(p);
@@ -677,17 +650,16 @@ int abSearch(int depth, int alpha, int beta, int role)
 void init()
 {
     memset(board, -1, sizeof(board));
-    ZobristValue = random64();
-    vector<string> patternStrs;
+    ZobristValue = rand();
+    vector<string> pat_strings;
     for (size_t i = 0; i < patterns.size(); i++)
     {
-        patternStrs.push_back(patterns[i].pattern);
+        pat_strings.push_back(patterns[i].pattern);
     }
 
-    //初始化ACSearcher
-    acs.LoadPattern(patternStrs);
-    acs.BuildGotoTable();
-    acs.BuildFailTable();
+    acs.load(pat_strings);
+    acs.build();
+    acs.build_fail();
 
     for (int i = 0; i < 15; i++)
     {
@@ -695,7 +667,7 @@ void init()
         {
             for (int k = 0; k < 2; k++)
             {
-                boardZobristValue[i][j][k] = random64();
+                boardZobristValue[i][j][k] = rand();
             }
         }
     }
@@ -715,9 +687,9 @@ std::pair<int, int> action(std::pair<int, int> loc)
         {
             ZobristValue ^= boardZobristValue[7][7][ai_side];
             board[7][7] = ai_side;
-            update_score(position(7, 7));
-            next_point = position(7, 7);
-            ppm.add(board, position(7, 7));
+            update_score(Coordinate(7, 7));
+            next_point = Coordinate(7, 7);
+            ppm.add(board, Coordinate(7, 7));
             return std::make_pair(7, 7);
         }
         if (turn == 3)
@@ -732,7 +704,7 @@ std::pair<int, int> action(std::pair<int, int> loc)
                     if (board[i][j] != -1)
                     {
                         board[i][j] = board[i][j] ^ 1;
-                        update_score(position(i, j));
+                        update_score(Coordinate(i, j));
                     }
 
             abSearch(DEPTH, MIN, MAX, ai_side);
@@ -746,8 +718,8 @@ std::pair<int, int> action(std::pair<int, int> loc)
 
     board[x][y] = 1 - ai_side;
     ZobristValue ^= boardZobristValue[x][y][1 - ai_side];
-    update_score(position(x, y));
-    ppm.add(board, position(x, y));
+    update_score(Coordinate(x, y));
+    ppm.add(board, Coordinate(x, y));
 
     abSearch(DEPTH, MIN, MAX, ai_side);
     board[next_point.x][next_point.y] = ai_side;
