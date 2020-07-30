@@ -12,7 +12,7 @@ std::string ai_name = "Master of Gomoku";
 
 #define MAX 10000000
 #define MIN -10000000
-const int DEPTH = 7;
+const int DEPTH = 6;
 long long ZobristValue, boardZobristValue[15][15][2];
 int turn = 0;
 int board[15][15], chess_score[2], scores[2][72];
@@ -27,6 +27,11 @@ bool out_board(int x, int y)
     {
         return true;
     }
+}
+
+long long random64()
+{
+    return (long long)rand() | ((long long)rand() << 15) | ((long long)rand() << 30) | ((long long)rand() << 45) | ((long long)rand() << 60);
 }
 
 struct Pattern
@@ -180,8 +185,6 @@ struct possible_Coordinate
             current_possible.insert(hi.removedCoordinate);
     }
 } ppm;
-
-set<Coordinate> current_Coordinate;
 
 struct searcher
 {
@@ -534,16 +537,14 @@ void record_hashItem(int depth, int score, index state)
     phashItem->depth = depth;
 }
 
-//在哈希表中取得计算好的局面的分数
-int get_hashItemScore(int depth, int alpha, int beta)
+//alpha-beta剪枝
+int abSearch(int depth, int alpha, int beta, int role)
 {
-    int index = (int)(ZobristValue & 0xffff);
-    HashItem *phashItem = &hashItems[index];
+    index state = ALPHA;
+    int pos = (int)(ZobristValue & 0xffff);
+    HashItem *phashItem = &hashItems[pos];
 
-    if (phashItem->state == EMPTY)
-        return MAX + 1;
-
-    if (phashItem->key == ZobristValue)
+    if (phashItem->key == ZobristValue && depth != DEPTH)
     {
         if (phashItem->depth >= depth)
         {
@@ -561,33 +562,21 @@ int get_hashItemScore(int depth, int alpha, int beta)
             }
         }
     }
-    return MAX + 1;
-}
+    int my_score = (role == ai_side) ? chess_score[1] : chess_score[0];
+    int competitor_score = (role == ai_side) ? chess_score[0] : chess_score[1];
 
-//alpha-beta剪枝
-int abSearch(int depth, int alpha, int beta, int role)
-{
-    index state = ALPHA;
-    int score = get_hashItemScore(depth, alpha, beta);
-    if (score != MAX + 1 && depth != DEPTH)
-    {
-        return score;
-    }
-    int score1 = (role == ai_side) ? chess_score[1] : chess_score[0];
-    int score2 = (role == ai_side) ? chess_score[0] : chess_score[1];
-
-    if (score1 >= 50000)
+    if (my_score >= 50000)
     {
         return MAX - 1000 - (DEPTH - depth);
     }
-    if (score2 >= 50000)
+    if (competitor_score >= 50000)
     {
         return MIN + 1000 + (DEPTH - depth);
     }
     if (depth == 0)
     {
-        record_hashItem(depth, score1 - score2, EXACT);
-        return score1 - score2;
+        record_hashItem(depth, my_score - competitor_score, EXACT);
+        return my_score - competitor_score;
     }
 
     int cnt = 0;
@@ -601,7 +590,7 @@ int abSearch(int depth, int alpha, int beta, int role)
         possible.insert(Coordinate(iter->x, iter->y, evalueate_point(iter->x, iter->y)));
     }
 
-    while (!possible.empty())
+    while (cnt < 9 && !possible.empty())
     {
         Coordinate p = *possible.begin();
 
@@ -635,12 +624,7 @@ int abSearch(int depth, int alpha, int beta, int role)
                 next_point = p;
             }
         }
-
         cnt++;
-        if (cnt >= 9)
-        {
-            break;
-        }
     }
 
     record_hashItem(depth, alpha, state);
@@ -650,7 +634,7 @@ int abSearch(int depth, int alpha, int beta, int role)
 void init()
 {
     memset(board, -1, sizeof(board));
-    ZobristValue = rand();
+    ZobristValue = random64();
     vector<string> pat_strings;
     for (size_t i = 0; i < patterns.size(); i++)
     {
@@ -667,7 +651,7 @@ void init()
         {
             for (int k = 0; k < 2; k++)
             {
-                boardZobristValue[i][j][k] = rand();
+                boardZobristValue[i][j][k] = random64();
             }
         }
     }
