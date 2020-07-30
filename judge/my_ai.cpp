@@ -34,13 +34,7 @@ long long random64()
     return (long long)rand() | ((long long)rand() << 15) | ((long long)rand() << 30) | ((long long)rand() << 45) | ((long long)rand() << 60);
 }
 
-struct Pattern
-{
-    string pattern;
-    int score;
-};
-
-vector<Pattern> patterns = {
+vector<std::pair<string, int>> patterns = {
     {"11111", 50000},
     {"011110", 4320},
     {"011100", 720},
@@ -120,31 +114,19 @@ struct possible_Coordinate
     };
     set<Coordinate> current_possible;
     vector<history> his;
-    vector<pair<int, int>> directions;
-    int (*evaluateFunc)(char board[15][15], Coordinate p);
-    possible_Coordinate()
-    {
-        directions.push_back(pair<int, int>(1, 1));
-        directions.push_back(pair<int, int>(1, -1));
-        directions.push_back(pair<int, int>(-1, 1));
-        directions.push_back(pair<int, int>(-1, -1));
-        directions.push_back(pair<int, int>(1, 0));
-        directions.push_back(pair<int, int>(0, 1));
-        directions.push_back(pair<int, int>(-1, 0));
-        directions.push_back(pair<int, int>(0, -1));
-    }
-    void add(int board[15][15], const Coordinate &p)
+    int directions[8][2] = {1, 1, 1, -1, -1, 1, -1, -1, 1, 0, -1, 0, 0, 1, 0, -1};
+    void add(const Coordinate &p)
     {
         set<Coordinate> addedCoordinates;
 
         for (int i = 0; i < 8; i++)
         {
-            if (out_board(p.x + directions[i].first, p.y + directions[i].second))
+            if (out_board(p.x + directions[i][0], p.y + directions[i][1]))
                 continue;
 
-            if (board[p.x + directions[i].first][p.y + directions[i].second] == EMPTY)
+            if (board[p.x + directions[i][0]][p.y + directions[i][1]] == EMPTY)
             {
-                Coordinate pos(p.x + directions[i].first, p.y + directions[i].second);
+                Coordinate pos(p.x + directions[i][0], p.y + directions[i][1]);
                 pair<set<Coordinate>::iterator, bool> insertResult = current_possible.insert(pos);
 
                 if (insertResult.second)
@@ -184,7 +166,7 @@ struct possible_Coordinate
         if (hi.removedCoordinate.x != -1) //加入前一步删除的点
             current_possible.insert(hi.removedCoordinate);
     }
-} ppm;
+} possible_position;
 
 struct searcher
 {
@@ -214,7 +196,7 @@ struct searcher
 
     void build()
     {
-        unsigned int i, j;
+        int i, j;
         for (i = 0; i < pat.size(); i++)
         {
             int current_index = 0;
@@ -235,10 +217,6 @@ struct searcher
 
             nodes[current_index].output.push_back(i);
         }
-    }
-
-    void build_fail()
-    {
         vector<int> mid_nodes;
 
         node root = nodes[0]; //给第一层的节点设置fail为0，并把第二层节点加入到midState里
@@ -259,7 +237,7 @@ struct searcher
         {
             vector<int> newMid_nodes;
 
-            unsigned int i;
+            int i;
             for (i = 0; i < mid_nodes.size(); i++)
             {
                 node &current_node = nodes[mid_nodes[i]];
@@ -349,73 +327,69 @@ int evalueate_point(int x, int y)
     result = 0;
     role = 1 - ai_side;
 
-    string lines[4];
-    string lines1[4];
+    string lines[4][2];
     for (i = max(0, x - 5); i < min(15, x + 6); i++)
     {
         if (i != x)
         {
-            lines[0].push_back(board[i][y] == role ? '1' : board[i][y] == -1 ? '0' : '2');
-            lines1[0].push_back(board[i][y] == role ? '2' : board[i][y] == -1 ? '0' : '1');
+            lines[0][0].push_back(board[i][y] == role ? '1' : board[i][y] == -1 ? '0' : '2');
+            lines[0][1].push_back(board[i][y] == role ? '2' : board[i][y] == -1 ? '0' : '1');
         }
         else
         {
-            lines[0].push_back('1');
-            lines1[0].push_back('1');
+            lines[0][0].push_back('1');
+            lines[0][1].push_back('1');
         }
     }
     for (i = max(0, y - 5); i < min(15, y + 6); i++)
     {
         if (i != y)
         {
-            lines[1].push_back(board[x][i] == role ? '1' : board[x][i] == -1 ? '0' : '2');
-            lines1[1].push_back(board[x][i] == role ? '2' : board[x][i] == -1 ? '0' : '1');
+            lines[1][0].push_back(board[x][i] == role ? '1' : board[x][i] == -1 ? '0' : '2');
+            lines[1][1].push_back(board[x][i] == role ? '2' : board[x][i] == -1 ? '0' : '1');
         }
         else
         {
-            lines[1].push_back('1');
-            lines1[1].push_back('1');
+            lines[1][0].push_back('1');
+            lines[1][1].push_back('1');
         }
     }
     for (i = x - min(min(x, y), 5), j = y - min(min(x, y), 5); i < min(15, x + 6) && j < min(15, y + 6); i++, j++)
     {
         if (i != x)
         {
-            lines[2].push_back(board[i][j] == role ? '1' : board[i][j] == -1 ? '0' : '2');
-            lines1[2].push_back(board[i][j] == role ? '2' : board[i][j] == -1 ? '0' : '1');
+            lines[2][0].push_back(board[i][j] == role ? '1' : board[i][j] == -1 ? '0' : '2');
+            lines[2][1].push_back(board[i][j] == role ? '2' : board[i][j] == -1 ? '0' : '1');
         }
         else
         {
-            lines[2].push_back('1');
-            lines1[2].push_back('1');
+            lines[2][0].push_back('1');
+            lines[2][1].push_back('1');
         }
     }
     for (i = x + min(min(y, 15 - 1 - x), 5), j = y - min(min(y, 15 - 1 - x), 5); i >= max(0, x - 5) && j < min(15, y + 6); i--, j++)
     {
         if (i != x)
         {
-            lines[3].push_back(board[i][j] == role ? '1' : board[i][j] == -1 ? '0' : '2');
-            lines1[3].push_back(board[i][j] == role ? '2' : board[i][j] == -1 ? '0' : '1');
+            lines[3][0].push_back(board[i][j] == role ? '1' : board[i][j] == -1 ? '0' : '2');
+            lines[3][1].push_back(board[i][j] == role ? '2' : board[i][j] == -1 ? '0' : '1');
         }
         else
         {
-            lines[3].push_back('1');
-            lines1[3].push_back('1');
+            lines[3][0].push_back('1');
+            lines[3][1].push_back('1');
         }
     }
 
     for (i = 0; i < 4; i++)
     {
-        vector<int> tmp = acs.search(lines[i]);
-        for (j = 0; j < tmp.size(); j++)
+        for (int k = 0; k < 2; k++)
         {
-            result += patterns[tmp[j]].score;
-        }
-
-        tmp = acs.search(lines1[i]);
-        for (j = 0; j < tmp.size(); j++)
-        {
-            result += patterns[tmp[j]].score;
+            vector<int> tmp = acs.search(lines[i][k]);
+            for (j = 0; j < tmp.size(); j++)
+            {
+                result += patterns[tmp[j]].second;
+            }
         }
     }
 
@@ -424,49 +398,41 @@ int evalueate_point(int x, int y)
 
 void update_score(Coordinate p)
 {
-    string lines[4];
-    string lines1[4];
-    int i, j;
-    int role = 1 - ai_side;
+    string lines[4][2];
+    int role = 1 - ai_side, i, j;
 
     for (i = 0; i < 15; i++) //竖
     {
-        lines[0].push_back(board[i][p.y] == role ? '1' : board[i][p.y] == -1 ? '0' : '2');
-        lines1[0].push_back(board[i][p.y] == role ? '2' : board[i][p.y] == -1 ? '0' : '1');
+        lines[0][0].push_back(board[i][p.y] == role ? '1' : board[i][p.y] == -1 ? '0' : '2');
+        lines[0][1].push_back(board[i][p.y] == role ? '2' : board[i][p.y] == -1 ? '0' : '1');
     }
     for (i = 0; i < 15; i++) //横
     {
-        lines[1].push_back(board[p.x][i] == role ? '1' : board[p.x][i] == -1 ? '0' : '2');
-        lines1[1].push_back(board[p.x][i] == role ? '2' : board[p.x][i] == -1 ? '0' : '1');
+        lines[1][0].push_back(board[p.x][i] == role ? '1' : board[p.x][i] == -1 ? '0' : '2');
+        lines[1][1].push_back(board[p.x][i] == role ? '2' : board[p.x][i] == -1 ? '0' : '1');
     }
     for (i = p.x - min(p.x, p.y), j = p.y - min(p.x, p.y); i < 15 && j < 15; i++, j++) //反斜杠
     {
-        lines[2].push_back(board[i][j] == role ? '1' : board[i][j] == -1 ? '0' : '2');
-        lines1[2].push_back(board[i][j] == role ? '2' : board[i][j] == -1 ? '0' : '1');
+        lines[2][0].push_back(board[i][j] == role ? '1' : board[i][j] == -1 ? '0' : '2');
+        lines[2][1].push_back(board[i][j] == role ? '2' : board[i][j] == -1 ? '0' : '1');
     }
     for (i = p.x + min(p.y, 15 - 1 - p.x), j = p.y - min(p.y, 15 - 1 - p.x); i >= 0 && j < 15; i--, j++) //斜杠
     {
-        lines[3].push_back(board[i][j] == role ? '1' : board[i][j] == -1 ? '0' : '2');
-        lines1[3].push_back(board[i][j] == role ? '2' : board[i][j] == -1 ? '0' : '1');
+        lines[3][0].push_back(board[i][j] == role ? '1' : board[i][j] == -1 ? '0' : '2');
+        lines[3][1].push_back(board[i][j] == role ? '2' : board[i][j] == -1 ? '0' : '1');
     }
 
-    int line_score[4];
-    int line1_score[4];
-    memset(line_score, 0, sizeof(line_score));
-    memset(line1_score, 0, sizeof(line1_score));
+    int line_score[4][2] = {0};
 
     for (i = 0; i < 4; i++) //计算分数
     {
-        vector<int> result = acs.search(lines[i]);
-        for (j = 0; j < result.size(); j++)
+        for (int k = 0; k < 2; k++)
         {
-            line_score[i] += patterns[result[j]].score;
-        }
-
-        result = acs.search(lines1[i]);
-        for (j = 0; j < result.size(); j++)
-        {
-            line1_score[i] += patterns[result[j]].score;
+            vector<int> result = acs.search(lines[i][k]);
+            for (j = 0; j < result.size(); j++)
+            {
+                line_score[i][k] += patterns[result[j]].second;
+            }
         }
     }
 
@@ -482,12 +448,11 @@ void update_score(Coordinate p)
     }
 
     //scores顺序 竖、横、\、/
-    scores[0][a] = line_score[0];
-    scores[1][a] = line1_score[0];
-    scores[0][b] = line_score[1];
-    scores[1][b] = line1_score[1];
+    scores[0][a] = line_score[0][0];
+    scores[1][a] = line_score[0][1];
+    scores[0][b] = line_score[1][0];
+    scores[1][b] = line_score[1][1];
 
-    //加上新的记录
     for (i = 0; i < 2; i++)
     {
         chess_score[i] += scores[i][a];
@@ -500,8 +465,8 @@ void update_score(Coordinate p)
         for (i = 0; i < 2; i++)
             chess_score[i] -= scores[i][c];
 
-        scores[0][c] = line_score[2];
-        scores[1][c] = line1_score[2];
+        scores[0][c] = line_score[2][0];
+        scores[1][c] = line_score[2][1];
 
         for (i = 0; i < 2; i++)
             chess_score[i] += scores[i][c];
@@ -513,8 +478,8 @@ void update_score(Coordinate p)
         for (i = 0; i < 2; i++)
             chess_score[i] -= scores[i][d];
 
-        scores[0][d] = line_score[3];
-        scores[1][d] = line1_score[3];
+        scores[0][d] = line_score[3][0];
+        scores[1][d] = line_score[3][1];
 
         for (i = 0; i < 2; i++)
             chess_score[i] += scores[i][d];
@@ -523,40 +488,38 @@ void update_score(Coordinate p)
 
 void record_hashItem(int depth, int score, index state)
 {
-    int index = (int)(ZobristValue & 0xffff);
-    HashItem *phashItem = &hashItems[index];
+    HashItem *pos_hashItem = &hashItems[ZobristValue & 0xffff];
 
-    if (phashItem->state != EMPTY && phashItem->depth > depth)
+    if (pos_hashItem->state != EMPTY && pos_hashItem->depth > depth)
     {
         return;
     }
 
-    phashItem->key = ZobristValue;
-    phashItem->score = score;
-    phashItem->state = state;
-    phashItem->depth = depth;
+    pos_hashItem->key = ZobristValue;
+    pos_hashItem->score = score;
+    pos_hashItem->state = state;
+    pos_hashItem->depth = depth;
 }
 
 //alpha-beta剪枝
 int abSearch(int depth, int alpha, int beta, int role)
 {
     index state = ALPHA;
-    int pos = (int)(ZobristValue & 0xffff);
-    HashItem *phashItem = &hashItems[pos];
+    HashItem *pos_hashItem = &hashItems[ZobristValue & 0xffff];
 
-    if (phashItem->key == ZobristValue && depth != DEPTH)
+    if (pos_hashItem->key == ZobristValue && depth != DEPTH)
     {
-        if (phashItem->depth >= depth)
+        if (pos_hashItem->depth >= depth)
         {
-            if (phashItem->state == EXACT)
+            if (pos_hashItem->state == EXACT)
             {
-                return phashItem->score;
+                return pos_hashItem->score;
             }
-            if (phashItem->state == ALPHA && phashItem->score <= alpha)
+            if (pos_hashItem->state == ALPHA && pos_hashItem->score <= alpha)
             {
                 return alpha;
             }
-            if (phashItem->state == BETA && phashItem->score >= beta)
+            if (pos_hashItem->state == BETA && pos_hashItem->score >= beta)
             {
                 return beta;
             }
@@ -581,7 +544,7 @@ int abSearch(int depth, int alpha, int beta, int role)
 
     int cnt = 0;
     set<Coordinate> possible;
-    const set<Coordinate> &temp = ppm.current_possible;
+    const set<Coordinate> &temp = possible_position.current_possible;
 
     //对当前可能出现的位置进行粗略评分
     set<Coordinate>::iterator iter;
@@ -601,10 +564,10 @@ int abSearch(int depth, int alpha, int beta, int role)
         update_score(p);
 
         p.score = 0;
-        ppm.add(board, p);
+        possible_position.add(p);
 
         int val = -abSearch(depth - 1, -beta, -alpha, 1 - role);
-        ppm.back();
+        possible_position.back();
 
         board[p.x][p.y] = -1;
         ZobristValue ^= boardZobristValue[p.x][p.y][role];
@@ -636,15 +599,13 @@ void init()
     memset(board, -1, sizeof(board));
     ZobristValue = random64();
     vector<string> pat_strings;
-    for (size_t i = 0; i < patterns.size(); i++)
+    for (int i = 0; i < patterns.size(); i++)
     {
-        pat_strings.push_back(patterns[i].pattern);
+        pat_strings.push_back(patterns[i].first);
     }
 
     acs.load(pat_strings);
     acs.build();
-    acs.build_fail();
-
     for (int i = 0; i < 15; i++)
     {
         for (int j = 0; j < 15; j++)
@@ -673,7 +634,7 @@ std::pair<int, int> action(std::pair<int, int> loc)
             board[2][7] = ai_side;
             update_score(Coordinate(2, 7));
             next_point = Coordinate(2, 7);
-            ppm.add(board, Coordinate(2, 7));
+            possible_position.add(Coordinate(2, 7));
             return std::make_pair(2, 7);
         }
         if (turn == 3)
@@ -693,7 +654,7 @@ std::pair<int, int> action(std::pair<int, int> loc)
             board[next_point.x][next_point.y] = ai_side;
             ZobristValue ^= boardZobristValue[next_point.x][next_point.y][ai_side];
             update_score(next_point);
-            ppm.add(board, next_point);
+            possible_position.add(next_point);
             return std::make_pair(next_point.x, next_point.y);
         }
     }
@@ -704,19 +665,19 @@ std::pair<int, int> action(std::pair<int, int> loc)
         board[next_point.x][next_point.y] = ai_side;
         ZobristValue ^= boardZobristValue[next_point.x][next_point.y][ai_side];
         update_score(next_point);
-        ppm.add(board, next_point);
+        possible_position.add(next_point);
         return std::make_pair(0, 1);
     }
 
     board[x][y] = 1 - ai_side;
     ZobristValue ^= boardZobristValue[x][y][1 - ai_side];
     update_score(Coordinate(x, y));
-    ppm.add(board, Coordinate(x, y));
+    possible_position.add(Coordinate(x, y));
 
     abSearch(DEPTH, MIN, MAX, ai_side);
     board[next_point.x][next_point.y] = ai_side;
     ZobristValue ^= boardZobristValue[next_point.x][next_point.y][ai_side];
     update_score(next_point);
-    ppm.add(board, next_point);
+    possible_position.add(next_point);
     return std::make_pair(next_point.x, next_point.y);
 }
