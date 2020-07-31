@@ -12,7 +12,6 @@ std::string ai_name = "Master of Gomoku";
 #define MAX 10000000
 #define MIN -10000000
 const int DEPTH = 6;
-long long ZobristValue, boardZobristValue[15][15][2];
 int turn = 0;
 int board[15][15], chess_score[2], scores[2][72];
 
@@ -26,11 +25,6 @@ bool out_board(int x, int y)
     {
         return true;
     }
-}
-
-long long random64()
-{
-    return rand() | ((long long)rand() << 32);
 }
 
 vector<std::pair<string, int>> patterns = {
@@ -50,14 +44,6 @@ vector<std::pair<string, int>> patterns = {
     {"010100", 120},
     {"000100", 20},
     {"001000", 20},
-};
-
-enum index
-{
-    ALPHA,
-    BETA,
-    EXACT,
-    EMPTY = -1
 };
 
 struct Coordinate
@@ -95,14 +81,6 @@ struct Coordinate
     }
 } next_point;
 
-struct Hash
-{
-    long long key;
-    int depth;
-    int score;
-    index state;
-} hashs[0xffff];
-
 struct possible_Coordinate
 {
     set<Coordinate> current_possible;
@@ -116,12 +94,12 @@ struct possible_Coordinate
             if (out_board(p.x + directions[i][0], p.y + directions[i][1]))
                 continue;
 
-            if (board[p.x + directions[i][0]][p.y + directions[i][1]] == EMPTY)
+            if (board[p.x + directions[i][0]][p.y + directions[i][1]] == -1)
             {
                 Coordinate pos(p.x + directions[i][0], p.y + directions[i][1]);
-                pair<set<Coordinate>::iterator, bool> insertResult = current_possible.insert(pos);
+                pair<set<Coordinate>::iterator, bool> insert_result = current_possible.insert(pos);
 
-                if (insertResult.second)
+                if (insert_result.second)
                     history.first.insert(pos);
             }
         }
@@ -152,7 +130,7 @@ struct possible_Coordinate
             current_possible.erase(*iter);
         }
 
-        if (history.second.x != -1) //加入前一步删除的点
+        if (history.second.x != -1)
             current_possible.insert(history.second);
     }
 } possible_position;
@@ -473,45 +451,9 @@ void update_score(Coordinate p)
     }
 }
 
-void record(int depth, int score, index state)
-{
-    Hash *pos_hash = &hashs[ZobristValue & 0xffff];
-
-    if (pos_hash->state != EMPTY && pos_hash->depth > depth)
-    {
-        return;
-    }
-
-    pos_hash->key = ZobristValue;
-    pos_hash->score = score;
-    pos_hash->state = state;
-    pos_hash->depth = depth;
-}
-
 //alpha-beta剪枝
 int abSearch(int depth, int alpha, int beta, int role)
 {
-    index state = ALPHA;
-    Hash *pos_hash = &hashs[ZobristValue & 0xffff];
-
-    if (pos_hash->key == ZobristValue && depth != DEPTH)
-    {
-        if (pos_hash->depth >= depth)
-        {
-            if (pos_hash->state == EXACT)
-            {
-                return pos_hash->score;
-            }
-            if (pos_hash->state == ALPHA && pos_hash->score <= alpha)
-            {
-                return alpha;
-            }
-            if (pos_hash->state == BETA && pos_hash->score >= beta)
-            {
-                return beta;
-            }
-        }
-    }
     int my_score = (role == ai_side) ? chess_score[1] : chess_score[0];
     int competitor_score = (role == ai_side) ? chess_score[0] : chess_score[1];
 
@@ -525,7 +467,6 @@ int abSearch(int depth, int alpha, int beta, int role)
     }
     if (depth == 0)
     {
-        record(depth, my_score - competitor_score, EXACT);
         return my_score - competitor_score;
     }
 
@@ -543,7 +484,6 @@ int abSearch(int depth, int alpha, int beta, int role)
         possible.erase(possible.begin());
 
         board[p.x][p.y] = role;
-        ZobristValue ^= boardZobristValue[p.x][p.y][role];
         update_score(p);
 
         p.score = 0;
@@ -553,17 +493,14 @@ int abSearch(int depth, int alpha, int beta, int role)
         possible_position.back();
 
         board[p.x][p.y] = -1;
-        ZobristValue ^= boardZobristValue[p.x][p.y][role];
         update_score(p);
 
         if (val >= beta)
         {
-            record(depth, beta, BETA);
             return beta;
         }
         if (val > alpha)
         {
-            state = EXACT;
             alpha = val;
             if (depth == DEPTH)
             {
@@ -572,15 +509,12 @@ int abSearch(int depth, int alpha, int beta, int role)
         }
         cnt++;
     }
-
-    record(depth, alpha, state);
     return alpha;
 }
 
 void init()
 {
     memset(board, -1, sizeof(board));
-    ZobristValue = random64();
     vector<string> pat_strings;
     for (int i = 0; i < patterns.size(); i++)
     {
@@ -589,16 +523,6 @@ void init()
 
     acsearch.load(pat_strings);
     acsearch.build();
-    for (int i = 0; i < 15; i++)
-    {
-        for (int j = 0; j < 15; j++)
-        {
-            for (int k = 0; k < 2; k++)
-            {
-                boardZobristValue[i][j][k] = random64();
-            }
-        }
-    }
 }
 
 // loc is the action of your opponent
@@ -613,7 +537,6 @@ std::pair<int, int> action(std::pair<int, int> loc)
     {
         if (turn == 1)
         {
-            ZobristValue ^= boardZobristValue[2][7][ai_side];
             board[2][7] = ai_side;
             update_score(Coordinate(2, 7));
             next_point = Coordinate(2, 7);
@@ -635,7 +558,7 @@ std::pair<int, int> action(std::pair<int, int> loc)
 
             abSearch(DEPTH, MIN, MAX, ai_side);
             board[next_point.x][next_point.y] = ai_side;
-            ZobristValue ^= boardZobristValue[next_point.x][next_point.y][ai_side];
+
             update_score(next_point);
             possible_position.add(next_point);
             return std::make_pair(next_point.x, next_point.y);
@@ -646,20 +569,17 @@ std::pair<int, int> action(std::pair<int, int> loc)
     {
         next_point = Coordinate(0, 1);
         board[next_point.x][next_point.y] = ai_side;
-        ZobristValue ^= boardZobristValue[next_point.x][next_point.y][ai_side];
         update_score(next_point);
         possible_position.add(next_point);
         return std::make_pair(0, 1);
     }
 
     board[x][y] = 1 - ai_side;
-    ZobristValue ^= boardZobristValue[x][y][1 - ai_side];
     update_score(Coordinate(x, y));
     possible_position.add(Coordinate(x, y));
 
     abSearch(DEPTH, MIN, MAX, ai_side);
     board[next_point.x][next_point.y] = ai_side;
-    ZobristValue ^= boardZobristValue[next_point.x][next_point.y][ai_side];
     update_score(next_point);
     possible_position.add(next_point);
     return std::make_pair(next_point.x, next_point.y);

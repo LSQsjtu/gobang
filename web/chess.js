@@ -27,38 +27,20 @@ $(document).ready(function () {
         }
     }
 
-    // 从localStorage获取棋局
-    initSelect();
+    $(document).mousedown(function (e) {
+        let x = e.pageX, y = e.pageY;
+        if (isWin) { return; }
 
-    $(document).mousedown(
-        function (e) {
-            let x = e.pageX, y = e.pageY;
-            $.ajax({
-                url: 'ajaxEmps',//传给后端@RequestMapping("/ajaxEmps")
-                data: "name=yang",//参数可以有多种写法
-                datatype: 'json',//返回格式
-                success: function (data) {
-                    emp = emp = eval("(" + data + ")");//将JSON格式的字符串转成JSON
-                    $.each(emp, function (i, result) {
-                        console.log(result);
-                        console.log(result.id);
-                        item = "<tr><td>" + result.id + "</td><td>" + result.lastName + "</td></tr>";
-                        $('#AjaxTable').append(item); //将遍历的数据插进table表格里 
-                    });
-                }
-            })
-            if (isWin) { return; }
+        if (isRobot && !flag) { return; }
 
-            if (isRobot && !flag) { return; }
-
-            // 以（pointX, 60）为基准
-            if (x < dx + pointX - 20 || x > dx + pointX + 600 + 20 || y < dy + 60 - 20 || y > dy + 660 + 20) {
-                // alert("请在规定范围内落子");
-                return;
-            } else {
-                drawChess(x, y);
-            }
-        });
+        // 以（pointX, 60）为基准
+        if (x < dx + pointX - 20 || x > dx + pointX + 600 + 20 || y < dy + 60 - 20 || y > dy + 660 + 20) {
+            // alert("请在规定范围内落子");
+            return;
+        } else {
+            drawChess(x, y);
+        }
+    });
 });
 
 function drawBoard() {
@@ -263,6 +245,7 @@ function showResult(num) {
         isWin = true;
     }
 }
+
 function change() {
     for (let i = 0; i <= 15; i++) {
         for (let j = 0; j <= 15; j++) {
@@ -284,6 +267,7 @@ function change() {
             ctx.closePath();
         }
     }
+    flag = !flag;
 }
 
 function repentChess() {
@@ -349,71 +333,6 @@ function saveChess() {
     alert("保存成功!");
 }
 
-// 获取棋局
-function initSelect() {
-    let options = "<option value =''>请选择棋局</option>";
-    for (let i = 0; i < storage.length; i++) {
-        let key = storage.key(i);
-        if (key.startsWith("chess-")) {
-            options += "<option value ='" + key + "'>" + key.substring(6, key.length) + "</option>";
-        }
-    }
-    $('select').html(options);
-}
-
-function loadChess() {
-    let key = $('select').val();
-    if (key == "") {
-        alert("暂无棋局");
-        return;
-    }
-    let item = storage.getItem(key);
-    let arr = item.split('|');
-
-    array = JSON.parse(arr[0]);
-    flag = arr[1] == 'true';
-    history = JSON.parse(arr[2]);
-    isWin = arr[3] == 'true';
-    isRobot = false;
-
-    ctx.clearRect(80, 0, 640, 720);
-    // 初始化棋盘
-    drawBoard();
-
-    // 根据array载入棋局
-    for (let i = 0; i <= 15; i++) {
-        for (let j = 0; j <= 15; j++) {
-            ctx.beginPath();
-            let val = array[i][j];
-            if (val == null) {
-                continue;
-            } else if (val == 1) {
-                ctx.fillStyle = "black";
-            } else if (val == 0) {
-                ctx.fillStyle = "white";
-            }
-            // 画棋子
-            ctx.arc(dx + j * 40, dy + i * 40, 16, 0, 2 * Math.PI);
-            ctx.stroke();
-            ctx.fill();
-            ctx.closePath();
-        }
-    }
-
-    if (isWin) {
-        let msg = "黑棋胜利";
-        if (flag) {
-            msg = "白旗胜利";
-        }
-        // 显示文本
-        ctx.beginPath();
-        ctx.font = "40px Arial";
-        ctx.fillStyle = 'red';
-        ctx.fillText(msg, 300, 300);
-        ctx.closePath();
-    }
-}
-
 function fightWithRobot() {
     isRobot = true;
     robotDrawChess();
@@ -447,41 +366,44 @@ function fightWithRobot() {
 }
 
 function robotDrawChess() {
-    setInterval(function () {
-        if (!flag && !isWin) {
-            console.info(array)
-            console.info("robot开始下棋了")
+    if (!isWin) {
+        console.info(array)
+        console.info("robot开始下棋了")
 
-            var data = {
-                "x": -1,
-                "y": -1,
-                "ai_side": 0
-            };
-            $.ajax({
-                type: 'GET',
-                url: "D:/2019lsq/Documents/projects/gobang/judge/app.py",
-                data: data,
-                dataType: 'json',
-                success: function (data) {
-                },
-                error: function (xhr, type) {
-                }
+        var data = {
+            "x": -1,
+            "y": -1,
+            "ai_side": 0
+        };
+        $.ajax({
+            type: 'GET',
+            url: "http://127.0.0.1:5000/start_game",
+            data: data,
+            dataType: 'json',
+            success: function (data) {
+            },
+            error: function (xhr, type) {
+            }
 
-            });
-            //let val = getPosition(array);
-            let i = val.split(",")[0];
-            let j = val.split(",")[1];
+        });
+        //let val = getPosition(array);
+        let i = data.x;
+        let j = data.y;
+        ctx.beginPath();
+        if (flag) {
             array[i][j] = 0;
-
-            ctx.beginPath();
             ctx.fillStyle = "white";
-            ctx.arc(dx + j * 40, dy + i * 40, 16, 0, 2 * Math.PI);
-            ctx.stroke();
-            ctx.fill();
-            ctx.closePath();
-
-            analyse(j, i, flag);
-            flag = !flag;
         }
-    }, 1000);
+        else {
+            array[i][j] = 1;
+            ctx.fillStyle = "black";
+        }
+        ctx.arc(dx + j * 40, dy + i * 40, 16, 0, 2 * Math.PI);
+        ctx.stroke();
+        ctx.fill();
+        ctx.closePath();
+
+        analyse(j, i, flag);
+        flag = !flag;
+    };
 }
