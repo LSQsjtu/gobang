@@ -72,12 +72,25 @@ def start_game():
 
     turn = 0
     board = Board()
-    a1 = ["./code"]
+    a1 = ('human')
     b1 = ["./baseline"]
     ai0, ai1 = AI(a1, 0), AI(b1, 1)
     try_init(ai0, ai1)
     return "游戏开始！"
 
+@app.route('/start_jiji')
+def start_jiji():
+    global board
+    global turn
+    global ai0, ai1
+
+    turn = 0
+    board = Board()
+    a1 = ["./baseline"]
+    b1 = ["./code"]
+    ai0, ai1 = AI(a1, 0), AI(b1, 1)
+    try_init(ai0, ai1)
+    return "游戏开始！"
 
 @app.route('/send_message', methods=['GET'])
 def send_message():
@@ -92,29 +105,52 @@ def send_message():
     tmp = message_get.split()
     a = int(tmp[0])
     b = int(tmp[1])
+    print(a)
+    print(b)
     a, b = ai0.action(a, b)
     board.action(0, turn, a, b)
 
     return "收到消息"
 
-
-@app.route('/change_to_json', methods=['GET'])
-def change_to_json():
+@app.route('/ai0_change_to_json', methods=['GET'])
+def ai0_change_to_json():
     global a, b
     global board
     global turn
     global ai1
+    global ai0
 
-    a, b = ai1.action(a, b)
-    board.action(1, turn, a, b)
-    print("后端回应")
+    a=-1
+    b=-1
+    if turn == 1:
+        a, b = ai0.action(-1, -1)
+    else:
+         a, b = ai0.action(a, b)
+    board.action(0, turn, a, b)
     print(a)
     print(b)
+    print("hh");
     message_back = "".join(str(a) + " " + str(b))
     message_json = {"message": message_back}
 
     return jsonify(message_json)
 
+@app.route('/ai1_change_to_json', methods=['GET'])
+def ai1_change_to_json():
+    global a, b
+    global board
+    global turn
+    global ai1
+    global ai0
+
+    a, b = ai1.action(a, b)
+    board.action(1, turn, a, b)
+    print(a)
+    print(b)
+    message_back = "".join(str(a) + " " + str(b))
+    message_json = {"message": message_back}
+    return jsonify(message_json)
+
 
 if __name__ == '__main__':
-    app.run(debug=true)
+    app.run()

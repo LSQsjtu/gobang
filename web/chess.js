@@ -9,36 +9,62 @@ let flag = true; // 黑子先行
 let array = []; // 存储棋局
 let history = []; // 存储历史棋子
 let isRobot = false; // 是否为人机对战
+let robot_robot = false;
 
 // 偏离位置
 // 查找下棋坐标位置, 以(width/2 - 400, 60)为基准
 let width = $(window).width();
 let pointX = width / 2 - 400;
-let dx = 100, dy = 25;
+let dx = 120, dy = 45;
 
 $(document).ready(function () {
     drawBoard();
     drawBlack();
     drawWhite();
-    for (let i = 0; i <= 15; i++) {
+
+    for (let i = 0; i < 15; i++) {
         array[i] = new Array();
-        for (let j = 0; j <= 15; j++) {
+        for (let j = 0; j < 15; j++) {
             array[i][j] = null;
         }
     }
-
+    $.ajax({
+        url: "http://127.0.0.1:5000/start_game"
+    });
     $(document).mousedown(function (e) {
         let x = e.pageX, y = e.pageY;
-        if (isWin) { return; }
-
-        if (isRobot && !flag) { return; }
-
-        // 以（pointX, 60）为基准
-        if (x < dx + pointX - 20 || x > dx + pointX + 600 + 20 || y < dy + 60 - 20 || y > dy + 660 + 20) {
+        if (isWin || robot_robot) {
+            return;
+        }
+        //以(width/2 - 400, 60) 为基准
+        if (x < dx + pointX - 20 || x > dx + pointX + 560 + 20 || y < dy + 60 - 20 || y > dy + 620 + 20) {
             // alert("请在规定范围内落子");
             return;
         } else {
+            // 画棋子
             drawChess(x, y);
+            if (isRobot) {
+                let realX, realY;
+                let x1 = parseInt((x - pointX - dx) / 40);
+                let x2 = (x - pointX - dx) % 40;
+                if (x2 <= 20) {
+                    realX = x1 * 40;
+                } else {
+                    realX = x1 * 40 + 40;
+                }
+
+                let y1 = parseInt((y - 60 - dy) / 40);
+                let y2 = (y - 60 - dy) % 40;
+                if (y2 <= 20) {
+                    realY = y1 * 40;
+                } else {
+                    realY = y1 * 40 + 40;
+                }
+
+                // 添加数据到数组
+                let idxX = realX / 40, idxY = realY / 40;
+                robot_draw(idxY, idxX);
+            }
         }
     });
 });
@@ -48,13 +74,13 @@ function drawBoard() {
     ctx.strokeStyle = "black";
 
     ctx.beginPath();
-    for (let i = 0; i <= 15; i++) {
+    for (let i = 0; i < 15; i++) {
         ctx.moveTo(dx + 0, dy + 40 * i);
-        ctx.lineTo(dx + 600, dy + 40 * i);
+        ctx.lineTo(dx + 560, dy + 40 * i);
     }
-    for (let i = 0; i <= 15; i++) {
+    for (let i = 0; i < 15; i++) {
         ctx.moveTo(dx + 40 * i, dy + 0);
-        ctx.lineTo(dx + 40 * i, dy + 600);
+        ctx.lineTo(dx + 40 * i, dy + 560);
     }
 
     ctx.stroke();
@@ -151,7 +177,7 @@ function analyse(idxX, idxY, flag) {
         }
     }
     a = idxX;
-    while (a <= 15) {
+    while (a < 15) {
         if (array[b][a] == color) {
             num++;
             a++;
@@ -172,7 +198,7 @@ function analyse(idxX, idxY, flag) {
         }
     }
     b = idxY;
-    while (b <= 15) {
+    while (b < 15) {
         if (array[b][a] == color) {
             num++;
             b++;
@@ -194,7 +220,7 @@ function analyse(idxX, idxY, flag) {
         }
     }
     a = idxX, b = idxY;
-    while (a <= 15 && b <= 15) {
+    while (a < 15 && b < 15) {
         if (array[b][a] == color) {
             num++;
             a++;
@@ -207,7 +233,7 @@ function analyse(idxX, idxY, flag) {
 
     // 判断右上左下
     a = idxX, b = idxY, num = 0;
-    while (a >= 0 && b <= 15) {
+    while (a >= 0 && b < 15) {
         if (array[b][a] == color) {
             num++;
             a--;
@@ -217,7 +243,7 @@ function analyse(idxX, idxY, flag) {
         }
     }
     a = idxX, b = idxY;
-    while (a <= 16 && b >= 0) {
+    while (a < 15 && b >= 0) {
         if (array[b][a] == color) {
             num++;
             a++;
@@ -247,17 +273,18 @@ function showResult(num) {
 }
 
 function change() {
-    for (let i = 0; i <= 15; i++) {
-        for (let j = 0; j <= 15; j++) {
-            ctx.beginPath();
+    for (let i = 0; i < 15; i++) {
+        for (let j = 0; j < 15; j++) {
             let val = array[i][j];
             if (val == null) {
                 continue;
             } else if (val == 1) {
                 array[i][j] = 0;
+                ctx.beginPath();
                 ctx.fillStyle = "white";
             } else if (val == 0) {
                 array[i][j] = 1;
+                ctx.beginPath();
                 ctx.fillStyle = "black";
             }
             // 画棋子
@@ -304,9 +331,9 @@ function initChess() {
     drawBoard();
 
     // 初始化棋局
-    for (let i = 0; i <= 12; i++) {
+    for (let i = 0; i < 15; i++) {
         array[i] = new Array();
-        for (let j = 0; j <= 16; j++) {
+        for (let j = 0; j < 15; j++) {
             array[i][j] = null;
         }
     }
@@ -314,6 +341,7 @@ function initChess() {
     history = [];
     isWin = false;
     isRobot = false;
+    robot_robot = false;
 }
 
 function saveChess() {
@@ -335,62 +363,27 @@ function saveChess() {
 
 function fightWithRobot() {
     isRobot = true;
-    robotDrawChess();
-    /*process.stdin.resume();
-    process.stdin.setEncoding('utf8');
-    var fullInput = "";
-    process.stdin.on('data', function (chunk) {
-        fullInput += chunk;
-    });
-    process.stdin.on('end', function () {
-        // 解析读入的JSON
-        var input = JSON.parse(fullInput);
-        var output;
-        for (i = input.requests.length - 1; i >= 0; i--) {
-            placeAt(i, input.requests[i].x, input.requests[i].y);
-        }
-        for (i = input.responses.length - 1; i >= 0; i--) {
-            placeAt(i, input.responses[i].x, input.responses[i].y);
-        }
-        if (input.requests.length === 2) {		// 可以换手
-            output = {
-                response: { x: -1, y: -1 }		// 总是换手
-            }
-        } else {
-            output = {
-                response: randomAvailablePosition()
-            };
-        }
-        console.log(JSON.stringify(output));
-    });*/
 }
 
-function robotDrawChess() {
-    if (!isWin) {
-        console.info(array)
-        console.info("robot开始下棋了")
+function robotRobot() {
+    robot_robot = true;
+    $.ajax({
+        url: "http://127.0.0.1:5000/start_jiji"
+    })
+    robotRobotDraw();
+}
+function robotRobotDraw() {
+    var message = String(1) + " " + String(2);
+    var data = {
+        message: message
+    };
 
-        var data = {
-            "x": -1,
-            "y": -1,
-            "ai_side": 0
-        };
-        $.ajax({
-            type: 'GET',
-            url: "http://127.0.0.1:5000/start_game",
-            data: data,
-            dataType: 'json',
-            success: function (data) {
-            },
-            error: function (xhr, type) {
-            }
-
-        });
-        //let val = getPosition(array);
-        let i = data.x;
-        let j = data.y;
+    $.getJSON("http://127.0.0.1:5000/ai0_change_to_json", async = false, function (data) {
+        var tmp = data.message.split(" ");
+        var i = Number(tmp[0]);
+        var j = Number(tmp[1]);
         ctx.beginPath();
-        if (flag) {
+        if (!flag) {
             array[i][j] = 0;
             ctx.fillStyle = "white";
         }
@@ -405,5 +398,70 @@ function robotDrawChess() {
 
         analyse(j, i, flag);
         flag = !flag;
+    });
+    $.getJSON("http://127.0.0.1:5000/ai1_change_to_json", async = false, function (data) {
+        var tmp = data.message.split(" ");
+        var i = Number(tmp[0]);
+        var j = Number(tmp[1]);
+        ctx.beginPath();
+        if (!flag) {
+            array[i][j] = 0;
+            ctx.fillStyle = "white";
+        }
+        else {
+            array[i][j] = 1;
+            ctx.fillStyle = "black";
+        }
+        ctx.arc(dx + j * 40, dy + i * 40, 16, 0, 2 * Math.PI);
+        ctx.stroke();
+        ctx.fill();
+        ctx.closePath();
+
+        analyse(j, i, flag);
+        flag = !flag;
+    });
+}
+
+function robot_draw(x, y) {
+    if (!isWin) {
+        console.info(array)
+        console.info("robot开始下棋了")
+
+        var message = String(x) + " " + String(y);
+        $.ajax({
+            url: "http://127.0.0.1:5000/send_message",
+            data: {
+                message: message
+            },
+            async: false,
+            type: 'GET'
+        })
+
+        $.getJSON("http://127.0.0.1:5000/ai1_change_to_json", async = false, function (data) {
+            var tmp = data.message.split(" ");
+            var i = Number(tmp[0]);
+            var j = Number(tmp[1]);
+
+            if (i == -1 && j == -1) {
+                change()
+                return;
+            }
+            ctx.beginPath();
+            if (!flag) {
+                array[i][j] = 0;
+                ctx.fillStyle = "white";
+            }
+            else {
+                array[i][j] = 1;
+                ctx.fillStyle = "black";
+            }
+            ctx.arc(dx + j * 40, dy + i * 40, 16, 0, 2 * Math.PI);
+            ctx.stroke();
+            ctx.fill();
+            ctx.closePath();
+
+            analyse(j, i, flag);
+            flag = !flag;
+        });
     };
 }
